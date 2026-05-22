@@ -196,6 +196,98 @@ var confluencePageDeleteCmd = &cobra.Command{
 	},
 }
 
+var confluenceAttachmentCmd = &cobra.Command{
+	Use:   "attachment",
+	Short: "Page attachment commands (upload and embed images)",
+}
+
+// imageMarkup builds the Confluence storage-format snippet that embeds an
+// attached image by filename, with optional width and alignment.
+func imageMarkup(filename string, width int, align string) string {
+	attrs := ""
+	if align != "" {
+		attrs += fmt.Sprintf(" ac:align=%q", align)
+	}
+	if width > 0 {
+		attrs += fmt.Sprintf(" ac:width=\"%d\"", width)
+	}
+	return fmt.Sprintf("<p><ac:image%s><ri:attachment ri:filename=%q/></ac:image></p>", attrs, filename)
+}
+
+var confluenceAttachmentUploadCmd = &cobra.Command{
+	Use:   "upload <page-id> <file>",
+	Short: "Upload a file (e.g. an image) as a page attachment",
+	Long: "Upload a file as an attachment to a page. Re-uploading the same " +
+		"filename adds a new version. Prints the storage-format markup to embed " +
+		"the file; pass --embed to also append that markup to the page.",
+	Args: cobra.ExactArgs(2),
+	Run: func(cmd *cobra.Command, args []string) {
+		exitOnError(requireRESTAuth())
+
+		pageID, filePath := args[0], args[1]
+		embed, _ := cmd.Flags().GetBool("embed")
+		width, _ := cmd.Flags().GetInt("width")
+		align, _ := cmd.Flags().GetString("align")
+
+		client := confluence.New(apiClient)
+		att, err := client.UploadAttachment(context.Background(), pageID, filePath)
+		exitOnError(err)
+
+		fmt.Printf("Uploaded: %s (attachment ID: %s)\n", att.Title, att.ID)
+
+		markup := imageMarkup(att.Title, width, align)
+		if !embed {
+			fmt.Printf("\nTo embed it, add this to the page body:\n%s\n", markup)
+			return
+		}
+
+		// --embed: append the image markup to the end of the page body.
+		page, err := client.GetPage(context.Background(), pageID, true)
+		exitOnError(err)
+		body := ""
+		if page.Body != nil && page.Body.Storage != nil {
+			body = page.Body.Storage.Value
+		}
+		version := 1
+		if page.Version != nil {
+			version = page.Version.Number + 1
+		}
+		_, err = client.UpdatePage(context.Background(), pageID, &confluence.UpdatePageInput{
+			Title:   page.Title,
+			Body:    body + markup,
+			Version: version,
+			Message: "Embed image " + att.Title,
+		})
+		exitOnError(err)
+		fmt.Printf("Embedded %s on the page (now v%d).\n", att.Title, version)
+	},
+}
+
+var confluenceAttachmentListCmd = &cobra.Command{
+	Use:   "list <page-id>",
+	Short: "List attachments on a page",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		exitOnError(requireRESTAuth())
+
+		outputJSON, _ := cmd.Flags().GetBool("json")
+
+		client := confluence.New(apiClient)
+		atts, err := client.ListAttachments(context.Background(), args[0])
+		exitOnError(err)
+
+		if outputJSON {
+			data, _ := json.MarshalIndent(atts, "", "  ")
+			fmt.Println(string(data))
+			return
+		}
+		fmt.Printf("Attachments on %s (%d):\n\n", args[0], len(atts))
+		for _, a := range atts {
+			fmt.Printf("%-14s %s\n", a.ID, a.Title)
+		}
+	},
+}
+
 var confluenceSpaceCmd = &cobra.Command{
 	Use:   "space",
 	Short: "Space commands",
@@ -385,6 +477,13 @@ func init() {
 
 	confluencePageCmd.AddCommand(confluencePageGetCmd, confluencePageListCmd, confluencePageCreateCmd, confluencePageUpdateCmd, confluencePageDeleteCmd)
 
+	// Attachment commands
+	confluenceAttachmentUploadCmd.Flags().Bool("embed", false, "Append the image to the page body after uploading")
+	confluenceAttachmentUploadCmd.Flags().Int("width", 0, "Image width in pixels for the embed markup")
+	confluenceAttachmentUploadCmd.Flags().String("align", "", "Image alignment for the embed markup (left, center, right)")
+	confluenceAttachmentListCmd.Flags().Bool("json", false, "Output as JSON")
+	confluenceAttachmentCmd.AddCommand(confluenceAttachmentUploadCmd, confluenceAttachmentListCmd)
+
 	// Space commands
 	confluenceSpaceListCmd.Flags().Int("limit", 25, "Maximum results")
 	confluenceSpaceListCmd.Flags().Bool("json", false, "Output as JSON")
@@ -401,7 +500,7 @@ func init() {
 	confluenceSearchCmd.Flags().Bool("json", false, "Output as JSON")
 
 	// Add all to confluence
-	confluenceCmd.AddCommand(confluencePageCmd, confluenceSpaceCmd, confluenceCommentCmd, confluenceSearchCmd)
+	confluenceCmd.AddCommand(confluencePageCmd, confluenceAttachmentCmd, confluenceSpaceCmd, confluenceCommentCmd, confluenceSearchCmd)
 
 	// Add to root
 	rootCmd.AddCommand(confluenceCmd)

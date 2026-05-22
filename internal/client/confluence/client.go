@@ -2,8 +2,10 @@ package confluence
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
+	"path/filepath"
 
 	"github.com/peter/atlassian-cli/internal/client"
 )
@@ -306,4 +308,82 @@ func (c *Client) SearchCQL(ctx context.Context, cql string, limit int) (*SearchR
 	}
 
 	return &result, nil
+}
+
+// Attachment represents a file attached to a page.
+type Attachment struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+}
+
+// ListAttachments returns the attachments on a page.
+func (c *Client) ListAttachments(ctx context.Context, pageID string) ([]*Attachment, error) {
+	path := fmt.Sprintf("/wiki/rest/api/content/%s/child/attachment?limit=100", url.PathEscape(pageID))
+	var result struct {
+		Results []*Attachment `json:"results"`
+	}
+	if err := c.DoREST(ctx, "GET", path, nil, &result); err != nil {
+		return nil, err
+	}
+	return result.Results, nil
+}
+
+// findAttachment returns the attachment with the given filename on a page, or
+// nil if none exists.
+func (c *Client) findAttachment(ctx context.Context, pageID, filename string) (*Attachment, error) {
+	path := fmt.Sprintf("/wiki/rest/api/content/%s/child/attachment?filename=%s",
+		url.PathEscape(pageID), url.QueryEscape(filename))
+	var result struct {
+		Results []*Attachment `json:"results"`
+	}
+	if err := c.DoREST(ctx, "GET", path, nil, &result); err != nil {
+		return nil, err
+	}
+	if len(result.Results) > 0 {
+		return result.Results[0], nil
+	}
+	return nil, nil
+}
+
+// UploadAttachment uploads a file as an attachment to a page. If an attachment
+// with the same filename already exists it is updated with a new version,
+// otherwise a new attachment is created. The Confluence storage-format markup
+// to embed it is the same in both cases: <ri:attachment ri:filename="...">.
+func (c *Client) UploadAttachment(ctx context.Context, pageID, filePath string) (*Attachment, error) {
+	name := filepath.Base(filePath)
+
+	existing, err := c.findAttachment(ctx, pageID, name)
+	if err != nil {
+		return nil, fmt.Errorf("checking existing attachments: %w", err)
+	}
+
+	var path string
+	if existing != nil {
+		// Update the existing attachment's data (adds a new version).
+		path = fmt.Sprintf("/wiki/rest/api/content/%s/child/attachment/%s/data",
+			url.PathEscape(pageID), url.PathEscape(existing.ID))
+	} else {
+		path = fmt.Sprintf("/wiki/rest/api/content/%s/child/attachment", url.PathEscape(pageID))
+	}
+
+	// X-Atlassian-Token defeats XSRF checking, required for this endpoint.
+	headers := map[string]string{"X-Atlassian-Token": "no-check"}
+	data, err := c.DoUpload(ctx, path, "file", filePath, headers)
+	if err != nil {
+		return nil, err
+	}
+
+	// The create endpoint returns {"results":[...]}; the data endpoint returns
+	// a single attachment object. Accept either shape.
+	var wrapped struct {
+		Results []*Attachment `json:"results"`
+	}
+	if json.Unmarshal(data, &wrapped) == nil && len(wrapped.Results) > 0 {
+		return wrapped.Results[0], nil
+	}
+	var single Attachment
+	if json.Unmarshal(data, &single) == nil && single.ID != "" {
+		return &single, nil
+	}
+	return nil, fmt.Errorf("upload succeeded but response could not be parsed: %s", string(data))
 }

@@ -6,7 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/peter/atlassian-cli/internal/auth"
@@ -45,6 +48,60 @@ func (c *Client) BaseURL() string {
 // DoREST makes a REST API request with basic auth
 func (c *Client) DoREST(ctx context.Context, method, path string, body interface{}, result interface{}) error {
 	return c.doRequest(ctx, method, c.baseURL+path, body, result, true)
+}
+
+// DoUpload POSTs a file as multipart/form-data using basic auth and returns
+// the raw response body. Used for endpoints (e.g. Confluence attachments)
+// that the JSON-only doRequest cannot serve. extraHeaders is applied last.
+func (c *Client) DoUpload(ctx context.Context, path, fileField, filePath string, extraHeaders map[string]string) ([]byte, error) {
+	if c.basicAuth == nil || !c.basicAuth.IsConfigured() {
+		return nil, fmt.Errorf("basic auth not configured")
+	}
+
+	f, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("opening file: %w", err)
+	}
+	defer f.Close()
+
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+	part, err := w.CreateFormFile(fileField, filepath.Base(filePath))
+	if err != nil {
+		return nil, err
+	}
+	if _, err := io.Copy(part, f); err != nil {
+		return nil, fmt.Errorf("reading file: %w", err)
+	}
+	if err := w.Close(); err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+path, &buf)
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	req.Header.Set("Accept", "application/json")
+	for k, v := range extraHeaders {
+		req.Header.Set(k, v)
+	}
+	c.basicAuth.Apply(req)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading response: %w", err)
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("API error (%d): %s", resp.StatusCode, string(respBody))
+	}
+	return respBody, nil
 }
 
 // DoGraphQL makes a GraphQL API request with OAuth
