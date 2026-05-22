@@ -28,7 +28,12 @@ Authentication:
   - REST commands (jira, confluence, jpd, link) need an API token.
   - GraphQL commands (goals, projects, compass, jpd insights) need OAuth.
   Run 'atlassian config init' to get started; running any command
-  without credentials prints step-by-step setup instructions.`,
+  without credentials prints step-by-step setup instructions.
+
+For Claude Code and other AI agents:
+  Run 'atlassian docs' for a complete, always-current command reference,
+  or 'atlassian docs --install' to install it as a Claude Code skill so
+  the agent discovers and uses this CLI effectively.`,
 }
 
 func init() {
