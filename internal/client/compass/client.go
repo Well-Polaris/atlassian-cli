@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/peter/atlassian-cli/internal/client"
 )
@@ -152,6 +153,115 @@ func (c *Client) ListScorecards(ctx context.Context, cloudID string, limit int) 
 		return nil, fmt.Errorf("compass: %s", resp.Compass.Scorecards.Message)
 	}
 	return resp.Compass.Scorecards.Nodes, nil
+}
+
+// mutationError is a business-logic error returned inside a Compass mutation
+// payload (distinct from GraphQL transport errors).
+type mutationError struct {
+	Message string `json:"message"`
+}
+
+func joinErrors(errs []mutationError) string {
+	if len(errs) == 0 {
+		return "unknown error"
+	}
+	msgs := make([]string, len(errs))
+	for i, e := range errs {
+		msgs[i] = e.Message
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// componentMutationPayload is the shared shape of the create/update component
+// mutation results.
+type componentMutationPayload struct {
+	Success          bool            `json:"success"`
+	Errors           []mutationError `json:"errors"`
+	ComponentDetails *Component      `json:"componentDetails"`
+}
+
+// CreateComponentInput holds the editable fields for a new component. Name is
+// required; empty fields are omitted from the request.
+type CreateComponentInput struct {
+	Name        string
+	TypeID      string
+	Description string
+	Slug        string
+	OwnerID     string
+	State       string
+}
+
+// CreateComponent creates a new component in a site's Compass catalog.
+func (c *Client) CreateComponent(ctx context.Context, cloudID string, in CreateComponentInput) (*Component, error) {
+	input := map[string]interface{}{"name": in.Name}
+	for k, v := range map[string]string{
+		"typeId":      in.TypeID,
+		"description": in.Description,
+		"slug":        in.Slug,
+		"ownerId":     in.OwnerID,
+		"state":       in.State,
+	} {
+		if v != "" {
+			input[k] = v
+		}
+	}
+
+	const q = `mutation CreateComponent($cloudId: ID!, $input: CreateCompassComponentInput!) {
+  compass {
+    createComponent(cloudId: $cloudId, input: $input) {
+      success
+      errors { message }
+      componentDetails { id name slug description state typeId url ownerId }
+    }
+  }
+}`
+	var resp struct {
+		Compass struct {
+			CreateComponent componentMutationPayload `json:"createComponent"`
+		} `json:"compass"`
+	}
+	vars := map[string]interface{}{"cloudId": cloudID, "input": input}
+	if err := c.DoGraphQLWithErrors(ctx, q, vars, &resp); err != nil {
+		return nil, err
+	}
+	r := resp.Compass.CreateComponent
+	if !r.Success {
+		return nil, fmt.Errorf("compass rejected the create: %s", joinErrors(r.Errors))
+	}
+	return r.ComponentDetails, nil
+}
+
+// UpdateComponent updates an existing component. changes holds only the fields
+// to modify (keyed by their GraphQL input names: name, slug, description,
+// state, ownerId).
+func (c *Client) UpdateComponent(ctx context.Context, id string, changes map[string]interface{}) (*Component, error) {
+	input := map[string]interface{}{"id": id}
+	for k, v := range changes {
+		input[k] = v
+	}
+
+	const q = `mutation UpdateComponent($input: UpdateCompassComponentInput!) {
+  compass {
+    updateComponent(input: $input) {
+      success
+      errors { message }
+      componentDetails { id name slug description state typeId url ownerId }
+    }
+  }
+}`
+	var resp struct {
+		Compass struct {
+			UpdateComponent componentMutationPayload `json:"updateComponent"`
+		} `json:"compass"`
+	}
+	if err := c.DoGraphQLWithErrors(ctx, q, map[string]interface{}{"input": input}, &resp); err != nil {
+		return nil, err
+	}
+	r := resp.Compass.UpdateComponent
+	if !r.Success {
+		return nil, fmt.Errorf("compass rejected the update: %s", joinErrors(r.Errors))
+	}
+	return r.ComponentDetails, nil
 }
 
 // RawQuery runs an arbitrary GraphQL operation against the Atlassian gateway

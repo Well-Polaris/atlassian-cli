@@ -160,6 +160,10 @@ atlassian compass component list
 atlassian compass component list --query "polaris" --limit 20
 atlassian compass component get "ari:cloud:compass:<cloudId>:component/..."
 
+# Create / update components (requires write:component:compass scope)
+atlassian compass component create --name "Billing API" --type SERVICE --description "..."
+atlassian compass component update "ari:cloud:compass:...:component/..." --state ACTIVE --description "..."
+
 # Scorecards
 atlassian compass scorecard list
 
