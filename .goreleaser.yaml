@@ -38,6 +38,9 @@ changelog:
 # `brew install Well-Polaris/homebrew-tap/atlassian-cli`.
 homebrew_casks:
   - name: atlassian-cli
+    # The cask is named atlassian-cli, but the executable it installs is `atlassian`.
+    binaries:
+      - atlassian
     repository:
       owner: Well-Polaris
       name: homebrew-tap
