@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"sort"
+	"strings"
 
 	"github.com/peter/atlassian-cli/internal/client"
 )
@@ -431,6 +433,55 @@ func (c *Client) CreateIssueLink(ctx context.Context, linkType, outwardKey, inwa
 func (c *Client) DeleteIssueLink(ctx context.Context, linkID string) error {
 	path := fmt.Sprintf("/rest/api/3/issueLink/%s", url.PathEscape(linkID))
 	return c.DoREST(ctx, "DELETE", path, nil, nil)
+}
+
+// EditableField describes a field that can be set on an issue, derived from
+// the issue's editmeta. For JPD ideas this surfaces every project-specific
+// custom field (target dates, ratings, selects, etc.).
+type EditableField struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Type     string `json:"type"`
+	Custom   string `json:"custom,omitempty"`
+	Required bool   `json:"required"`
+}
+
+// GetEditableFields returns the fields that can be edited on an issue, from
+// GET /issue/{key}/editmeta. Fields are sorted by display name.
+func (c *Client) GetEditableFields(ctx context.Context, issueKeyOrID string) ([]EditableField, error) {
+	path := fmt.Sprintf("/rest/api/3/issue/%s/editmeta", url.PathEscape(issueKeyOrID))
+
+	var result struct {
+		Fields map[string]struct {
+			Name     string `json:"name"`
+			Required bool   `json:"required"`
+			Schema   struct {
+				Type   string `json:"type"`
+				Custom string `json:"custom"`
+			} `json:"schema"`
+		} `json:"fields"`
+	}
+	if err := c.DoREST(ctx, "GET", path, nil, &result); err != nil {
+		return nil, err
+	}
+
+	fields := make([]EditableField, 0, len(result.Fields))
+	for id, meta := range result.Fields {
+		// schema.custom is a long package path; keep only the short suffix.
+		custom := meta.Schema.Custom
+		if i := strings.LastIndex(custom, ":"); i >= 0 {
+			custom = custom[i+1:]
+		}
+		fields = append(fields, EditableField{
+			ID:       id,
+			Name:     meta.Name,
+			Type:     meta.Schema.Type,
+			Custom:   custom,
+			Required: meta.Required,
+		})
+	}
+	sort.Slice(fields, func(i, j int) bool { return fields[i].Name < fields[j].Name })
+	return fields, nil
 }
 
 // GetIssueLinks returns the links attached to an issue, along with its summary.

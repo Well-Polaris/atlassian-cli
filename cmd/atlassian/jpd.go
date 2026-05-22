@@ -140,6 +140,44 @@ var jpdIdeasDeleteCmd = &cobra.Command{
 	},
 }
 
+var jpdIdeasFieldsCmd = &cobra.Command{
+	Use:   "fields <idea-key>",
+	Short: "List all editable fields on an idea (field ID, name, type)",
+	Long: "List every field that can be set on a JPD idea — including project-specific\n" +
+		"custom fields like target dates, ratings and selects. JPD fields are\n" +
+		"configured per project, so this reads the given idea's project.\n\n" +
+		"Use the field IDs shown here with future field-setting commands.",
+	Args: cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		exitOnError(requireRESTAuth())
+
+		outputJSON, _ := cmd.Flags().GetBool("json")
+
+		client := jira.New(apiClient)
+		fields, err := client.GetEditableFields(context.Background(), args[0])
+		exitOnError(err)
+
+		if outputJSON {
+			data, _ := json.MarshalIndent(fields, "", "  ")
+			fmt.Println(string(data))
+			return
+		}
+
+		fmt.Printf("Editable fields on %s (%d):\n\n", args[0], len(fields))
+		fmt.Printf("%-22s %-28s %s\n", "FIELD ID", "NAME", "TYPE")
+		for _, f := range fields {
+			typ := f.Type
+			if f.Custom != "" {
+				typ += " / " + f.Custom
+			}
+			if f.Required {
+				typ += " (required)"
+			}
+			fmt.Printf("%-22s %-28s %s\n", f.ID, f.Name, typ)
+		}
+	},
+}
+
 var jpdProjectsCmd = &cobra.Command{
 	Use:   "projects",
 	Short: "Product Discovery project commands",
@@ -266,7 +304,10 @@ func init() {
 	jpdIdeasUpdateCmd.Flags().StringP("description", "d", "", "New description")
 	jpdIdeasUpdateCmd.Flags().StringSlice("labels", nil, "New labels")
 
-	jpdIdeasCmd.AddCommand(jpdIdeasListCmd, jpdIdeasGetCmd, jpdIdeasCreateCmd, jpdIdeasUpdateCmd, jpdIdeasDeleteCmd)
+	// Ideas fields command
+	jpdIdeasFieldsCmd.Flags().Bool("json", false, "Output as JSON")
+
+	jpdIdeasCmd.AddCommand(jpdIdeasListCmd, jpdIdeasGetCmd, jpdIdeasCreateCmd, jpdIdeasUpdateCmd, jpdIdeasDeleteCmd, jpdIdeasFieldsCmd)
 
 	// Projects command
 	jpdProjectsListCmd.Flags().Bool("json", false, "Output as JSON")
