@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/peter/atlassian-cli/internal/version"
+	"github.com/Well-Polaris/atlassian-cli/internal/version"
 	"github.com/spf13/cobra"
 )
 

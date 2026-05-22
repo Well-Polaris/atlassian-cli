@@ -1,4 +1,4 @@
-module github.com/peter/atlassian-cli
+module github.com/Well-Polaris/atlassian-cli
 
 go 1.25.4
 

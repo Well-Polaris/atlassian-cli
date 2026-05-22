@@ -1,0 +1,60 @@
+# GoReleaser configuration — builds cross-platform binaries, publishes a
+# GitHub release, and updates the Homebrew formula in Well-Polaris/homebrew-tap.
+# See https://goreleaser.com
+version: 2
+
+project_name: atlassian-cli
+
+builds:
+  - id: atlassian
+    main: ./cmd/atlassian
+    binary: atlassian
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/Well-Polaris/atlassian-cli/internal/version.Version={{ .Version }}
+      - -X github.com/Well-Polaris/atlassian-cli/internal/version.GitCommit={{ .ShortCommit }}
+      - -X github.com/Well-Polaris/atlassian-cli/internal/version.BuildDate={{ .Date }}
+
+archives:
+  - id: default
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  use: github
+  sort: asc
+
+# Publishes a Homebrew cask to Well-Polaris/homebrew-tap so WELL users can run
+# `brew install Well-Polaris/homebrew-tap/atlassian-cli`.
+homebrew_casks:
+  - name: atlassian-cli
+    repository:
+      owner: Well-Polaris
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    homepage: "https://github.com/Well-Polaris/atlassian-cli"
+    description: "Command-line tool for Atlassian Cloud — Jira, Confluence, JPD, Compass"
+    license: "MIT"
+    # Strip the macOS quarantine flag so the unsigned binary runs immediately.
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr",
+                           args: ["-dr", "com.apple.quarantine", "#{staged_path}/atlassian"]
+          end
+
+release:
+  github:
+    owner: Well-Polaris
+    name: atlassian-cli

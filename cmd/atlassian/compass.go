@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/peter/atlassian-cli/internal/client/compass"
+	"github.com/Well-Polaris/atlassian-cli/internal/client/compass"
 	"github.com/spf13/cobra"
 )
 

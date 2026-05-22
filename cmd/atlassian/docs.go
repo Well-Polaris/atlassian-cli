@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/peter/atlassian-cli/internal/version"
+	"github.com/Well-Polaris/atlassian-cli/internal/version"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )

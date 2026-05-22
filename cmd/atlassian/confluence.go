@@ -7,7 +7,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/peter/atlassian-cli/internal/client/confluence"
+	"github.com/Well-Polaris/atlassian-cli/internal/client/confluence"
 	"github.com/spf13/cobra"
 )
 

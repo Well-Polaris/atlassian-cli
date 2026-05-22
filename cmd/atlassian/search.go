@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/peter/atlassian-cli/internal/client/search"
+	"github.com/Well-Polaris/atlassian-cli/internal/client/search"
 	"github.com/spf13/cobra"
 )
 

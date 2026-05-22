@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/peter/atlassian-cli/internal/auth"
-	"github.com/peter/atlassian-cli/internal/client"
-	"github.com/peter/atlassian-cli/internal/config"
+	"github.com/Well-Polaris/atlassian-cli/internal/auth"
+	"github.com/Well-Polaris/atlassian-cli/internal/client"
+	"github.com/Well-Polaris/atlassian-cli/internal/config"
 )
 
 var (

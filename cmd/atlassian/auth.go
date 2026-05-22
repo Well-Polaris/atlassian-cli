@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/peter/atlassian-cli/internal/auth"
+	"github.com/Well-Polaris/atlassian-cli/internal/auth"
 	"github.com/spf13/cobra"
 )
 

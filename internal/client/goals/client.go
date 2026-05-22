@@ -3,7 +3,7 @@ package goals
 import (
 	"context"
 
-	"github.com/peter/atlassian-cli/internal/client"
+	"github.com/Well-Polaris/atlassian-cli/internal/client"
 )
 
 // Client provides access to Atlassian Goals GraphQL API

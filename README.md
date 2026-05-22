@@ -14,15 +14,27 @@ A comprehensive CLI tool for accessing Atlassian APIs, designed for use with Cla
 
 ## Installation
 
-```bash
-# Clone and build
-git clone https://github.com/peter/atlassian-cli.git
-cd atlassian-cli
-make build
+### Homebrew (recommended)
 
-# Or install to GOPATH/bin
-make install
+```bash
+brew install Well-Polaris/homebrew-tap/atlassian-cli
 ```
+
+### From source
+
+```bash
+git clone https://github.com/Well-Polaris/atlassian-cli.git
+cd atlassian-cli
+make build          # build the ./atlassian binary
+make install        # or install to $GOPATH/bin
+```
+
+## Releasing
+
+Every merge to `main` automatically tags a new release and publishes binaries
+and the updated Homebrew formula (see `.github/workflows/release.yml`). Patch
+versions bump automatically; for a minor or major release, run
+`make bump-minor` / `make bump-major` and merge the VERSION change.
 
 ## Configuration
 
@@ -269,7 +281,7 @@ atlassian jira issue get PROJ-123 --json | jq '.fields.summary'
 
 ```bash
 atlassian --version
-# atlassian version 0.1.0
+# atlassian version 0.2.0
 ```
 
 ## License

@@ -3,8 +3,8 @@ package jpd
 import (
 	"context"
 
-	"github.com/peter/atlassian-cli/internal/client"
-	"github.com/peter/atlassian-cli/internal/client/jira"
+	"github.com/Well-Polaris/atlassian-cli/internal/client"
+	"github.com/Well-Polaris/atlassian-cli/internal/client/jira"
 )
 
 // Client provides access to Jira Product Discovery

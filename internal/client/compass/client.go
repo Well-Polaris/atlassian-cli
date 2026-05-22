@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/peter/atlassian-cli/internal/client"
+	"github.com/Well-Polaris/atlassian-cli/internal/client"
 )
 
 // Client provides access to the Compass GraphQL API. Compass is GraphQL-only

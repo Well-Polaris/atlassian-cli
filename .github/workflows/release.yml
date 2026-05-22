@@ -1,0 +1,78 @@
+name: Release
+
+# Every merge to main cuts a new release: a version tag is created and
+# GoReleaser builds binaries, publishes a GitHub release, and updates the
+# Homebrew formula in Well-Polaris/homebrew-tap.
+#
+# This workflow only pushes a tag — never a commit to main — so it is
+# compatible with branch protection that requires pull requests.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for Homebrew tap token
+        id: check
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          if [ -n "$TAP_TOKEN" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::HOMEBREW_TAP_TOKEN secret is not set — skipping release. Add it to enable automated releases."
+          fi
+
+      - name: Checkout
+        if: steps.check.outputs.ready == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute next version
+        if: steps.check.outputs.ready == 'true'
+        id: version
+        run: |
+          # Next version is the higher of: the VERSION file (a maintainer's
+          # declared baseline, bumped via 'make bump-minor/major' in a PR),
+          # and the latest release tag with its patch incremented.
+          file_ver=$(tr -d '[:space:]' < VERSION)
+          latest=$(git tag -l 'v*' --sort=-v:refname | head -n1)
+          latest=${latest#v}
+          latest=${latest:-0.0.0}
+          IFS=. read -r a b c <<< "$latest"
+          bumped="$a.$b.$((c + 1))"
+          next=$(printf '%s\n%s\n' "$file_ver" "$bumped" | sort -V | tail -n1)
+          echo "next=$next" >> "$GITHUB_OUTPUT"
+          echo "Releasing v$next (VERSION file: $file_ver, latest tag: v$latest)"
+
+      - name: Create and push tag
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${{ steps.version.outputs.next }}" -m "Release v${{ steps.version.outputs.next }}"
+          git push origin "v${{ steps.version.outputs.next }}"
+
+      - name: Set up Go
+        if: steps.check.outputs.ready == 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run GoReleaser
+        if: steps.check.outputs.ready == 'true'
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}

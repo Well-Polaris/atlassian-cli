@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/peter/atlassian-cli/internal/auth"
+	"github.com/Well-Polaris/atlassian-cli/internal/auth"
 )
 
 // Client is the base HTTP client for Atlassian APIs

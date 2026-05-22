@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/peter/atlassian-cli/internal/client/jira"
-	"github.com/peter/atlassian-cli/internal/client/jpd"
+	"github.com/Well-Polaris/atlassian-cli/internal/client/jira"
+	"github.com/Well-Polaris/atlassian-cli/internal/client/jpd"
 	"github.com/spf13/cobra"
 )
 
