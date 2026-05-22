@@ -4,10 +4,38 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"os"
 
 	"github.com/peter/atlassian-cli/internal/client/confluence"
 	"github.com/spf13/cobra"
 )
+
+// resolveConfluenceBody returns page body content from --body-file (a file
+// path, or "-" for stdin) when set, otherwise from --body. The bool reports
+// whether a body was explicitly provided — used so 'update' can leave the
+// existing body untouched when none is supplied. Reading from a file makes
+// macro-heavy storage-format XML practical to pass without shell escaping.
+func resolveConfluenceBody(cmd *cobra.Command) (string, bool, error) {
+	if file, _ := cmd.Flags().GetString("body-file"); file != "" {
+		var data []byte
+		var err error
+		if file == "-" {
+			data, err = io.ReadAll(os.Stdin)
+		} else {
+			data, err = os.ReadFile(file)
+		}
+		if err != nil {
+			return "", false, fmt.Errorf("reading body file: %w", err)
+		}
+		return string(data), true, nil
+	}
+	if cmd.Flags().Changed("body") {
+		body, _ := cmd.Flags().GetString("body")
+		return body, true, nil
+	}
+	return "", false, nil
+}
 
 var confluenceCmd = &cobra.Command{
 	Use:   "confluence",
@@ -77,9 +105,11 @@ var confluencePageCreateCmd = &cobra.Command{
 
 		spaceID, _ := cmd.Flags().GetString("space")
 		title, _ := cmd.Flags().GetString("title")
-		body, _ := cmd.Flags().GetString("body")
 		parentID, _ := cmd.Flags().GetString("parent")
 		status, _ := cmd.Flags().GetString("status")
+
+		body, _, err := resolveConfluenceBody(cmd)
+		exitOnError(err)
 
 		input := &confluence.CreatePageInput{
 			SpaceID:  spaceID,
@@ -108,22 +138,32 @@ var confluencePageUpdateCmd = &cobra.Command{
 		exitOnError(requireRESTAuth())
 
 		title, _ := cmd.Flags().GetString("title")
-		body, _ := cmd.Flags().GetString("body")
+		titleProvided := cmd.Flags().Changed("title")
 		version, _ := cmd.Flags().GetInt("version")
 		message, _ := cmd.Flags().GetString("message")
 
-		// If version not specified, get current version
+		body, bodyProvided, err := resolveConfluenceBody(cmd)
+		exitOnError(err)
+
+		// A v2 page update replaces the whole page, so any field the caller
+		// did not supply must be carried over from the current page —
+		// otherwise omitting --title or the body would blank it.
 		client := confluence.New(apiClient)
-		if version == 0 {
-			page, err := client.GetPage(context.Background(), args[0], false)
+		if version == 0 || !titleProvided || !bodyProvided {
+			page, err := client.GetPage(context.Background(), args[0], !bodyProvided)
 			exitOnError(err)
-			if page.Version != nil {
-				version = page.Version.Number + 1
-			} else {
-				version = 1
+			if version == 0 {
+				if page.Version != nil {
+					version = page.Version.Number + 1
+				} else {
+					version = 1
+				}
 			}
-			if title == "" {
+			if !titleProvided {
 				title = page.Title
+			}
+			if !bodyProvided && page.Body != nil && page.Body.Storage != nil {
+				body = page.Body.Storage.Value
 			}
 		}
 
@@ -330,14 +370,16 @@ func init() {
 
 	confluencePageCreateCmd.Flags().String("space", "", "Space ID (required)")
 	confluencePageCreateCmd.Flags().String("title", "", "Page title (required)")
-	confluencePageCreateCmd.Flags().String("body", "", "Page body (HTML/storage format)")
+	confluencePageCreateCmd.Flags().String("body", "", "Page body (storage format; supports macros)")
+	confluencePageCreateCmd.Flags().String("body-file", "", "Read body from a file (or '-' for stdin); overrides --body")
 	confluencePageCreateCmd.Flags().String("parent", "", "Parent page ID")
 	confluencePageCreateCmd.Flags().String("status", "current", "Page status (current or draft)")
 	confluencePageCreateCmd.MarkFlagRequired("space")
 	confluencePageCreateCmd.MarkFlagRequired("title")
 
-	confluencePageUpdateCmd.Flags().String("title", "", "New title")
-	confluencePageUpdateCmd.Flags().String("body", "", "New body (HTML/storage format)")
+	confluencePageUpdateCmd.Flags().String("title", "", "New title (kept as-is if omitted)")
+	confluencePageUpdateCmd.Flags().String("body", "", "New body (storage format; supports macros; kept as-is if omitted)")
+	confluencePageUpdateCmd.Flags().String("body-file", "", "Read body from a file (or '-' for stdin); overrides --body")
 	confluencePageUpdateCmd.Flags().Int("version", 0, "Version number (auto-increment if not specified)")
 	confluencePageUpdateCmd.Flags().String("message", "", "Version message")
 
