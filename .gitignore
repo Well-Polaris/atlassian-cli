@@ -1,0 +1,34 @@
+# Environment files with secrets
+.env
+.env.local
+
+# Go build artifacts
+/atlassian-cli
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output of go coverage
+*.out
+
+# Dependency directories
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Debug
+__debug_bin*
+/atlassian
