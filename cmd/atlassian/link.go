@@ -118,17 +118,21 @@ var linkDeleteCmd = &cobra.Command{
 
 // linkDirection resolves how a link reads from the perspective of the queried
 // issue, returning the relation phrase and the issue at the other end.
+//
+// In an issue's issuelinks, the linked (other) issue occupies the outwardIssue
+// or inwardIssue slot. If it is the outwardIssue, the queried issue is the
+// inward party, so the relation reads with the type's inward phrase — and
+// vice versa.
 func linkDirection(l *jira.IssueLink) (string, *jira.Issue) {
+	relation := "relates to"
 	if l.OutwardIssue != nil {
-		relation := "relates to"
 		if l.Type != nil {
-			relation = l.Type.Outward
+			relation = l.Type.Inward
 		}
 		return relation, l.OutwardIssue
 	}
-	relation := "relates to"
 	if l.Type != nil {
-		relation = l.Type.Inward
+		relation = l.Type.Outward
 	}
 	return relation, l.InwardIssue
 }
