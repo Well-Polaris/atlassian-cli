@@ -1,0 +1,22 @@
+name: atlassian-cli
+id: ari:cloud:compass:33cd2514-a497-4f83-bf9e-390d17c8a10c:component/51b385d0-b47e-409c-87c7-8c74402ec2ec/3f8eb13f-5610-4e88-860d-cb7bd28dcf5a
+description: Command-line tool for Atlassian Cloud — Jira, Confluence, Jira Product Discovery, Compass, and cross-product issue links
+configVersion: 1
+typeId: SERVICE
+fields:
+  tier: 4
+links:
+  - name: null
+    type: REPOSITORY
+    url: https://github.com/Well-Polaris/atlassian-cli
+relationships:
+  DEPENDS_ON: []
+labels:
+  - source:github
+customFields:
+  - name: Deployable C3 Service
+    type: boolean
+    value: false
+  - name: business-unit
+    type: single_select
+    value: null
