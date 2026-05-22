@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/peter/atlassian-cli/internal/auth"
@@ -110,7 +111,7 @@ func (c *Client) DoGraphQL(ctx context.Context, query string, variables map[stri
 		return fmt.Errorf("OAuth not configured - GraphQL APIs require OAuth authentication")
 	}
 
-	// Check if token needs refresh
+	// Proactively refresh if we know the token is expiring.
 	if c.oauth.NeedsRefresh() && c.oauth.HasRefreshToken() {
 		if _, err := c.oauth.Refresh(ctx); err != nil {
 			return fmt.Errorf("refreshing token: %w", err)
@@ -122,7 +123,24 @@ func (c *Client) DoGraphQL(ctx context.Context, query string, variables map[stri
 		"variables": variables,
 	}
 
-	return c.doRequest(ctx, "POST", "https://api.atlassian.com/graphql", payload, result, false)
+	const graphqlURL = "https://api.atlassian.com/graphql"
+	err := c.doRequest(ctx, "POST", graphqlURL, payload, result, false)
+
+	// Reactive refresh: if the access token was rejected, refresh once and
+	// retry. This is what makes refresh automatic across CLI invocations,
+	// since the access token's expiry is not tracked between runs.
+	if isUnauthorized(err) && c.oauth.HasRefreshToken() {
+		if _, rerr := c.oauth.Refresh(ctx); rerr != nil {
+			return fmt.Errorf("access token expired and refresh failed (%w) — run 'atlassian auth login'", rerr)
+		}
+		err = c.doRequest(ctx, "POST", graphqlURL, payload, result, false)
+	}
+	return err
+}
+
+// isUnauthorized reports whether err is a 401 from doRequest.
+func isUnauthorized(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "API error (401)")
 }
 
 func (c *Client) doRequest(ctx context.Context, method, url string, body interface{}, result interface{}, useBasicAuth bool) error {

@@ -36,6 +36,11 @@ type OAuth struct {
 	RefreshToken string
 	ExpiresAt    time.Time
 	Scopes       string
+
+	// OnRefresh, if set, is called after a successful token refresh so the
+	// caller can persist the rotated tokens. Atlassian rotates refresh
+	// tokens, so persisting both is required for the next run to work.
+	OnRefresh func(*OAuth)
 }
 
 // TokenResponse represents the OAuth token response
@@ -133,6 +138,10 @@ func (o *OAuth) Refresh(ctx context.Context) (*TokenResponse, error) {
 		o.RefreshToken = resp.RefreshToken
 	}
 	o.ExpiresAt = time.Now().Add(time.Duration(resp.ExpiresIn) * time.Second)
+
+	if o.OnRefresh != nil {
+		o.OnRefresh(o)
+	}
 
 	return resp, nil
 }

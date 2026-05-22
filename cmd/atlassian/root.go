@@ -83,6 +83,14 @@ func initClient() error {
 	// Set up OAuth for GraphQL APIs
 	if cfg.AccessToken != "" {
 		oauthAuth = auth.NewOAuth(cfg.ClientID, cfg.ClientSecret, cfg.AccessToken, cfg.RefreshToken)
+		// Persist rotated tokens after an automatic refresh so the next CLI
+		// run starts with valid credentials.
+		oauthAuth.OnRefresh = func(o *auth.OAuth) {
+			_ = upsertEnv(activeEnvPath(), map[string]string{
+				"ATLASSIAN_ACCESS_TOKEN":  o.AccessToken,
+				"ATLASSIAN_REFRESH_TOKEN": o.RefreshToken,
+			})
+		}
 	}
 
 	apiClient = client.NewClient(cfg.SiteURL, cfg.CloudID, basicAuth, oauthAuth)
