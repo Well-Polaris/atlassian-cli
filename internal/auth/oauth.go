@@ -17,14 +17,14 @@ const (
 	AuthorizationURL = "https://auth.atlassian.com/authorize"
 	TokenURL         = "https://auth.atlassian.com/oauth/token"
 
-	// DefaultScopes covers Jira, Confluence, Goals/Projects and Compass.
-	// Override per-login with 'auth login --scopes' if the OAuth app offers
-	// different scope names.
+	// DefaultScopes requests user identity plus the full Compass scope set.
+	// Jira/Confluence use the API token, not OAuth, so their scopes are not
+	// requested here. Override per-login with 'auth login --scopes'.
 	DefaultScopes = "read:me " +
-		"read:jira-work write:jira-work read:jira-user " +
-		"read:confluence-content.all write:confluence-content read:confluence-space.summary " +
 		"read:component:compass write:component:compass " +
-		"read:scorecard:compass read:metric:compass write:metric:compass " +
+		"read:scorecard:compass write:scorecard:compass " +
+		"read:event:compass write:event:compass " +
+		"read:metric:compass write:metric:compass " +
 		"offline_access"
 )
 
