@@ -9,6 +9,7 @@ A comprehensive CLI tool for accessing Atlassian APIs, designed for use with Cla
 - **Jira Product Discovery (JPD)** - Ideas, insights (REST + GraphQL)
 - **Goals** - Goals, metrics, status updates (GraphQL API)
 - **Projects** - Atlas projects, goal linking (GraphQL API)
+- **Compass** - Components, scorecards, raw GraphQL (GraphQL API)
 - **Unified Search** - Search across Jira and Confluence (Rovo)
 
 ## Installation
@@ -147,6 +148,25 @@ atlassian projects unlink-goal project-id goal-id
 
 # Status
 atlassian projects status project-id --message "Phase 1 complete"
+```
+
+### Compass (GraphQL)
+
+Compass is GraphQL-only and uses OAuth. Run `atlassian auth login` first.
+
+```bash
+# Components
+atlassian compass component list
+atlassian compass component list --query "polaris" --limit 20
+atlassian compass component get "ari:cloud:compass:<cloudId>:component/..."
+
+# Scorecards
+atlassian compass scorecard list
+
+# Raw GraphQL — the escape hatch for metrics, teams, dependencies and
+# all mutations. The gateway requires a NAMED operation.
+atlassian compass query 'query Q($c:String!){ compass { searchComponents(cloudId:$c, query:{first:5}){ ... on CompassSearchComponentConnection { totalCount } } } }' --vars '{"c":"<cloudId>"}'
+atlassian compass query --file ./mutation.graphql --vars '{"input":{...}}'
 ```
 
 ### Jira Product Discovery

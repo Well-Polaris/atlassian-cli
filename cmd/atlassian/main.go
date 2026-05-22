@@ -21,11 +21,12 @@ Supports:
   - Issue links       link Jira tickets to JPD ideas and back (REST)
   - Goals             goals, metrics, status updates (GraphQL)
   - Projects          Atlas projects and goal linking (GraphQL)
+  - Compass           components, scorecards, raw GraphQL (GraphQL)
   - Search            unified search across Jira and Confluence
 
 Authentication:
   - REST commands (jira, confluence, jpd, link) need an API token.
-  - GraphQL commands (goals, projects, jpd insights) need OAuth.
+  - GraphQL commands (goals, projects, compass, jpd insights) need OAuth.
   Run 'atlassian config init' to get started; running any command
   without credentials prints step-by-step setup instructions.`,
 }
