@@ -17,8 +17,15 @@ const (
 	AuthorizationURL = "https://auth.atlassian.com/authorize"
 	TokenURL         = "https://auth.atlassian.com/oauth/token"
 
-	// Required scopes for Goals and Projects APIs
-	DefaultScopes = "read:me read:jira-work write:jira-work read:jira-user read:confluence-content.all write:confluence-content read:confluence-space.summary offline_access"
+	// DefaultScopes covers Jira, Confluence, Goals/Projects and Compass.
+	// Override per-login with 'auth login --scopes' if the OAuth app offers
+	// different scope names.
+	DefaultScopes = "read:me " +
+		"read:jira-work write:jira-work read:jira-user " +
+		"read:confluence-content.all write:confluence-content read:confluence-space.summary " +
+		"read:component:compass write:component:compass " +
+		"read:scorecard:compass read:metric:compass write:metric:compass " +
+		"offline_access"
 )
 
 // OAuth provides OAuth 2.0 authentication for Atlassian GraphQL APIs
